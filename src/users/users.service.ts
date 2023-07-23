@@ -31,7 +31,7 @@ export class UsersService {
     try {
       const seed = gender === Gender.UNDETERMINED ? '' : `?gender=${gender}`;
       const response: any = await axios.get(
-        `https://randomugfdgdfser.me/api?inc=name,location,${seed}`,
+        `https://randomuser.me/api?inc=name,location,${seed}`,
       );
       const results = response.data.results[0];
       return {
@@ -56,5 +56,9 @@ export class UsersService {
       ...createUserDto,
     });
     return createdUser;
+  }
+
+  async findLeaders(): Promise<User[]> {
+    return this.userModel.find().sort({ score: -1 }).exec();
   }
 }
