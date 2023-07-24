@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import axios from 'axios';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schema';
 import { Gender } from 'src/types.ts/types';
 
@@ -22,16 +23,15 @@ export class UsersService {
       return data.probability > 0.95 ? data.gender : 'undetermined';
     } catch (error) {
       console.error('Error retrieving gender data:', error);
-      // throw new Error('Error retrieving gender');
       return Gender.UNDETERMINED;
     }
   }
 
   private async getAdditionalData(gender: Gender): Promise<any> {
     try {
-      const seed = gender === Gender.UNDETERMINED ? '' : `?gender=${gender}`;
+      const seed = gender === Gender.UNDETERMINED ? '' : `&gender=${gender}`;
       const response: any = await axios.get(
-        `https://randomuser.me/api?inc=name,location,${seed}`,
+        `https://randomuser.me/api?inc=name,location${seed}`,
       );
       const results = response.data.results[0];
       return {
@@ -42,7 +42,6 @@ export class UsersService {
       };
     } catch (error) {
       console.error('Error retrieving additional data:', error);
-      // throw new Error('Error retrieving additional data');
       return;
     }
   }
@@ -56,6 +55,23 @@ export class UsersService {
       ...createUserDto,
     });
     return createdUser;
+  }
+
+  async findByUserId(id: string): Promise<User> {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const existingUser = await this.findByUserId(id);
+    const updatedUser = await this.userModel.updateOne(
+      { _id: id },
+      { ...updateUserDto, existingUser },
+    );
+    return updatedUser;
   }
 
   async findLeaders(): Promise<User[]> {
