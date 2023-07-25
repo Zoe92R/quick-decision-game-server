@@ -7,12 +7,14 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schema';
 import { Gender } from 'src/types.ts/types';
+import { IUser } from './interfaces/user.interface';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(User.name) private readonly userModel: Model<IUser>,
   ) {}
+  private sortedUsers: IUser[] = [];
 
   private async getGender(userName: string): Promise<Gender> {
     try {
@@ -42,22 +44,22 @@ export class UsersService {
       };
     } catch (error) {
       console.error('Error retrieving additional data:', error);
-      return;
+      return {};
     }
   }
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto): Promise<IUser> {
     const gender = await this.getGender(createUserDto.userName);
     const additionalData = await this.getAdditionalData(gender);
     const createdUser = await this.userModel.create({
-      gender: gender,
+      gender,
       ...additionalData,
       ...createUserDto,
     });
     return createdUser;
   }
 
-  async findByUserId(id: string): Promise<User> {
+  async findByUserId(id: string): Promise<IUser> {
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -74,7 +76,15 @@ export class UsersService {
     return updatedUser;
   }
 
-  async findLeaders(): Promise<User[]> {
-    return this.userModel.find().sort({ score: -1 }).exec();
+  // The function returns sorted users array by score, for the leaderboard and saves the data locally
+  async findLeaders(): Promise<IUser[]> {
+    if (!this.sortedUsers.length) {
+      this.sortedUsers = await this.userModel
+        .find()
+        .sort({ score: -1 })
+        .select('-__v')
+        .exec();
+    }
+    return this.sortedUsers;
   }
 }
